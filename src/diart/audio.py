@@ -1,11 +1,11 @@
 from pathlib import Path
 from typing import Text, Union
+import warnings
 
+import soundfile as sf
 import torch
 import torchaudio
 from torchaudio.functional import resample
-
-torchaudio.set_audio_backend("soundfile")
 
 
 FilePath = Union[Text, Path]
@@ -28,7 +28,11 @@ class AudioLoader:
         -------
         waveform : torch.Tensor, shape (channels, samples)
         """
-        waveform, sample_rate = torchaudio.load(filepath)
+        # Suppress torchaudio deprecation warnings about torchcodec migration
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=".*torchaudio.*deprecated.*")
+            warnings.filterwarnings("ignore", message=".*torchcodec.*")
+            waveform, sample_rate = torchaudio.load(filepath)
         # Get channel mean if mono
         if self.mono and waveform.shape[0] > 1:
             waveform = waveform.mean(dim=0, keepdim=True)
@@ -51,5 +55,6 @@ class AudioLoader:
         duration : float
             Duration in seconds.
         """
-        info = torchaudio.info(filepath)
-        return info.num_frames / info.sample_rate
+        # Use soundfile directly to avoid torchaudio deprecation warnings
+        info = sf.info(filepath)
+        return info.frames / info.samplerate
